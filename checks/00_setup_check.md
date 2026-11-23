@@ -8,8 +8,8 @@ Is this computer ready? Each row compares what we EXPECT with what we SEE on the
 
 | status | count |
 |---|---|
-| OK | 22 |
-| WARNING | 1 |
+| OK | 23 |
+| WARNING | 0 |
 | PROBLEM | 0 |
 
 ## Python
@@ -50,8 +50,8 @@ Is this computer ready? Each row compares what we EXPECT with what we SEE on the
 
 | item | expected | seen | status |
 |---|---|---|---|
-| ENTSOE_API_KEY in .env | found | NOT FOUND | WARNING |
-| FINGRID_API_KEY in .env | optional, not used yet | not set | OK |
+| ENTSOE_API_KEY in .env | found | found (value not shown) | OK |
+| FINGRID_API_KEY in .env | optional, not used yet | found (value not shown) | OK |
 | .env listed in .gitignore | yes | yes | OK |
 | .env.example holds a placeholder | yes | yes | OK |
 
