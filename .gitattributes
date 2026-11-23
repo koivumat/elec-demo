@@ -1,0 +1,8 @@
+# Store text with Unix line endings, so a report written on Windows and one
+# written on Linux are identical in git (otherwise every line shows as changed).
+* text=auto eol=lf
+
+# Binary files: never touch line endings, never show text diffs
+*.pdf binary
+*.parquet binary
+*.png binary

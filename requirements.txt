@@ -1,0 +1,11 @@
+# Pinned versions: everyone gets exactly the same packages.
+# Install with:  pip install -r requirements.txt
+# A step that needs a new package adds it here, pinned, in its own pull request.
+entsoe-py==1.0.0
+matplotlib==3.11.2
+numpy==2.5.5
+pandas==3.1.1
+pyarrow==26.0.1
+pytest==9.2.0
+python-dotenv==1.2.4
+requests==2.34.2

@@ -1,0 +1,20 @@
+# Secrets: the API key lives only here, never in git
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# LaTeX by-products (the PDFs themselves are committed)
+*.aux
+*.log
+*.out
+*.nav
+*.snm
+*.toc
+*.vrb
+*.fls
+*.fdb_latexmk
+*.synctex.gz
