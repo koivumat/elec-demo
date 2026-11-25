@@ -59,9 +59,9 @@ Is this computer ready? Each row compares what we EXPECT with what we SEE on the
 
 | choice | value | default | first step | reason |
 |---|---|---|---|---|
-| bidding_zone | FI | FI | 01_fetch | The research question is about Finland; neighbours allow comparison. |
-| sample_start | 2022-01-01 | 2022-01-01 | 01_fetch | Includes the 2022 price crisis; 2025-10-01 starts the 15-minute era. |
-| sample_end | 2026-10-31 | 2026-10-31 | 01_fetch | Last full month before the project started; fixed so reruns agree. |
+| bidding_zone | FI | FI | 02_process | The research question is about Finland; neighbours and DE (a higher-price benchmark) allow comparison. |
+| sample_start | 2022-01-01 | 2022-01-01 | 02_process | Includes the 2022 price crisis; 2025-10-01 starts the 15-minute era. |
+| sample_end | 2026-10-31 | 2026-10-31 | 02_process | Last full month before the project started; fixed so reruns agree. |
 | price_resolution | native | native | 02_process | Keep prices as traded: hourly until 2025-09-30, 15 minutes after. |
 
 ## What a person should check
