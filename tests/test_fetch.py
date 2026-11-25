@@ -185,8 +185,30 @@ def test_fetch_all_retries_continues_after_a_failure_and_masks_the_key(tmp_path)
     status = step.fetch_all(FakeClient(fail_zone_year=("EE", 2025)), windows, tmp_path,
                             log=logs.append,  # raw: masking must happen in fetch_all
                             sleep=lambda s: None, throttle=ft.Throttle(0))
-    assert status["prices_FI_2024.csv"] == "downloaded"  # after one 503 retry
+    assert status["prices_FI_2024.csv"] == "present"  # after one 503 retry
     assert status["prices_EE_2025.csv"].startswith("FAILED: HTTP 401")
-    assert status["prices_EE_2024.csv"] == "downloaded"
+    assert status["prices_EE_2024.csv"] == "present"
     assert any("retrying" in line for line in logs)
     assert FAKE_KEY not in "\n".join(logs)
+
+
+def test_existing_files_are_not_downloaded_again(tmp_path):
+    step = importlib.import_module("01_fetch")
+    windows = ft.year_windows(zones=["FI"], start="2024-12-30", end="2025-01-02")
+    existing = tmp_path / "prices_FI_2024.csv"
+    existing.write_text("kept as it is\n", encoding="utf-8")
+
+    class CountingClient:
+        def __init__(self):
+            self.asked = []
+
+        def query_day_ahead_prices(self, area, start, end):
+            self.asked.append(start.year)
+            return fake_series(start, end)
+
+    client = CountingClient()
+    status = step.fetch_all(client, windows, tmp_path, log=lambda m: None,
+                            sleep=lambda s: None, throttle=ft.Throttle(0))
+    assert client.asked == [2025]  # only the missing file was requested
+    assert existing.read_text(encoding="utf-8") == "kept as it is\n"
+    assert status == {"prices_FI_2024.csv": "present", "prices_FI_2025.csv": "present"}

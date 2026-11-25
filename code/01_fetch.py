@@ -8,6 +8,10 @@ Downloads every zone (FI, SE1, EE) and every year from 2015-01-01 to
 data/raw/prices_FI_2024.csv. This step reads no analysis choices: the raw data
 is the same for every variant; choices start in step 02.
 
+Files that are already in data/raw/ are not downloaded again. To get a fresh
+copy of a file (for example if ENTSO-E has corrected its data), delete the
+file and run again. If every file is there, the key is not needed.
+
 Writes checks/01_fetch.md and figures/01_fetch_monthly_mean.svg.
 """
 
@@ -41,10 +45,13 @@ def make_client(api_key):
 
 
 def fetch_all(client, windows, raw_dir, log=say, sleep=None, throttle=None):
-    """Download every window; return {filename: status}.
+    """Download every window whose file is not there yet; return {filename: status}.
 
-    A window that fails after all retries keeps any older file and is marked
-    FAILED; the other windows still run.
+    Status is "present" (downloaded now or earlier: the report does not tell
+    them apart, so a rerun does not change it), "no data" or "FAILED: ...".
+    A file that is already there is never downloaded again; delete it to get
+    a fresh copy. A window that fails after all retries is marked FAILED and
+    the other windows still run.
     """
     from entsoe.exceptions import NoMatchingDataError
 
@@ -53,7 +60,11 @@ def fetch_all(client, windows, raw_dir, log=say, sleep=None, throttle=None):
     status = {}
     for i, w in enumerate(windows, start=1):
         label = f"{w.zone} {w.year}"
-        log(f"  [{i:2d}/{len(windows)}] {label}")
+        if (raw_dir / w.filename).exists():
+            status[w.filename] = "present"
+            log(f"  [{i:2d}/{len(windows)}] {label}: already there, not downloaded")
+            continue
+        log(f"  [{i:2d}/{len(windows)}] {label}: downloading")
         try:
             series = ft.call_with_retry(
                 lambda w=w: client.query_day_ahead_prices(
@@ -65,13 +76,12 @@ def fetch_all(client, windows, raw_dir, log=say, sleep=None, throttle=None):
             log(f"    {label}: ENTSO-E has no data for this period")
             continue
         except Exception as error:  # noqa: BLE001 (keep going with the others)
-            kept = "older file kept" if (raw_dir / w.filename).exists() else "no file"
-            status[w.filename] = f"FAILED: {ft.describe_error(error)} ({kept})"
+            status[w.filename] = f"FAILED: {ft.describe_error(error)}"
             log(mask(f"    {label}: FAILED: {error}"))
             continue
         frame = ft.to_raw_frame(series, w.start, w.end)
         ft.write_raw_csv(frame, raw_dir / w.filename)
-        status[w.filename] = "downloaded"
+        status[w.filename] = "present"
     return status
 
 
@@ -155,8 +165,10 @@ def build_report(windows, status, frames, figure_path):
                     + f"; HTTP 429: after {ft.RATE_LIMIT_WAIT_SECONDS} s"],
     ])
     rep.text("This step reads no analysis choices: it downloads everything any "
-             "choice can select. Retries are printed in the terminal, not here, "
-             "so this report is the same however many retries a run needed.")
+             "choice can select. A file already in `data/raw/` is not downloaded "
+             "again (delete it to get a fresh copy). Which files were downloaded "
+             "in this run, and any retries, are printed in the terminal, not "
+             "here, so this report changes only when the data changes.")
 
     # Summary
     counts = pd.Series(list(status.values())).map(
@@ -166,7 +178,7 @@ def build_report(windows, status, frames, figure_path):
     rep.heading("Summary")
     rep.table(["what", "value"], [
         ["files expected", len(windows)],
-        ["downloaded in this run", int(counts.get("downloaded", 0))],
+        ["files present", int(counts.get("present", 0))],
         ["no data at ENTSO-E", int(counts.get("no data", 0))],
         ["FAILED", int(counts.get("FAILED", 0))],
         ["rows in all files", total_rows],
@@ -303,7 +315,7 @@ def build_report(windows, status, frames, figure_path):
 
     rep.heading("What a person should check")
     rep.bullets([
-        "Summary: every file downloaded, none FAILED.",
+        "Summary: every file present, none FAILED.",
         "Files: rows = expected, nothing missing or duplicated. If something is "
         "missing, look at the days table: which days, and is it ENTSO-E or us?",
         "Excerpts: the switch to 15 minutes and the double hour in October look right.",
@@ -322,16 +334,18 @@ def main(client=None, windows=None, sleep=None, throttle=None):
         say("Note: step 01 reads no choices, so --set is ignored here. "
             "Raw data is the same for every variant.")
 
-    if client is None:
+    windows = windows if windows is not None else ft.year_windows()
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    to_get = [w for w in windows if not (RAW_DIR / w.filename).exists()]
+    say(f"{len(windows)} files (zone x year): {len(windows) - len(to_get)} already "
+        f"in data/raw/, {len(to_get)} to download.")
+
+    if to_get and client is None:
         key = read_secret("ENTSOE_API_KEY")
         if key is None:
             say("ERROR: ENTSOE_API_KEY not found in .env (see notes/dev-loop.md).")
             sys.exit(2)
         client = make_client(key)
-
-    windows = windows if windows is not None else ft.year_windows()
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    say(f"Downloading {len(windows)} files (zone x year) into data/raw/ ...")
     status = fetch_all(client, windows, RAW_DIR, sleep=sleep, throttle=throttle)
 
     frames = load_files(windows, RAW_DIR)
@@ -341,13 +355,14 @@ def main(client=None, windows=None, sleep=None, throttle=None):
 
     failed = [name for name, s in status.items() if s.startswith("FAILED")]
     nodata = [name for name, s in status.items() if s == "no data"]
-    say(f"Downloaded {len(status) - len(failed) - len(nodata)} of {len(windows)}; "
+    downloaded = len(to_get) - len(failed) - len(nodata)
+    say(f"Downloaded now: {downloaded}; already there: {len(windows) - len(to_get)}; "
         f"no data: {len(nodata)}; failed: {len(failed)}")
     say(f"Report written: {rel(path)}")
     say(f"Figure written: {rel(figure_path)}")
     if failed:
         say("Some downloads failed. Run the same command again later; "
-            "files that worked are simply downloaded again.")
+            "only the missing files are downloaded.")
         sys.exit(1)
 
 

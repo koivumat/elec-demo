@@ -62,7 +62,12 @@ Every decision, dated, with who decided and why. Analysis choices also live in
   the run ends with exit code 1 and the command can simply be run again.
   Files are written to a temporary name and renamed, so no half-written file
   is ever left. (agent)
-- **Every run downloads everything again** (about 70 requests, a few
-  minutes). If ENTSO-E revises old data, the git diff shows it. (agent)
+- **Existing files are not downloaded again** (teacher). A run downloads
+  only the files missing from `data/raw/`; to refresh a file (for example
+  after ENTSO-E corrects data), delete it and run again. The key is needed
+  only when something is missing. The report does not say which files were
+  downloaded in this run (the terminal does), so it changes only when the
+  data changes. This replaces the earlier plan to download everything on
+  every run. (teacher asked, agent implemented)
 - **Steps that read no choices run once per run_all call**, not once per
   variant in a sweep (`uses_choices=False` in run_all.py). (agent)
