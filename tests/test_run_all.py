@@ -28,6 +28,19 @@ def test_every_step_has_a_script():
         assert step.script.exists(), f"missing {step.script.name}"
 
 
+def test_fetch_needs_the_api_and_runs_once():
+    fetch = {s.number: s for s in run_all.STEPS}["01"]
+    assert fetch.needs_api and not fetch.uses_choices
+
+
+def test_plain_run_skips_the_download():
+    out = subprocess.run(
+        [sys.executable, "run_all.py", "--steps", "01"], cwd=ROOT,
+        capture_output=True, check=True, text=True,
+    ).stdout
+    assert "01 fetch: skipped (needs API; add --fetch)" in out
+
+
 def test_sweep_gives_every_combination():
     runs = run_all.parse_sweeps(["a=1,2", "b=x,y,z"])
     assert len(runs) == 6

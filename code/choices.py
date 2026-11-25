@@ -32,14 +32,14 @@ CHOICES = {
             default="FI",
             alternatives=("SE1", "EE"),
             reason="The research question is about Finland; neighbours allow comparison.",
-            first_step="01_fetch",
+            first_step="02_process",
         ),
         Choice(
             name="sample_start",
             default="2022-01-01",
             alternatives=("2015-01-01", "2023-01-01", "2025-10-01"),
             reason="Includes the 2022 price crisis; 2025-10-01 starts the 15-minute era.",
-            first_step="01_fetch",
+            first_step="02_process",
             open_ended=True,
         ),
         Choice(
@@ -47,7 +47,7 @@ CHOICES = {
             default="2026-10-31",
             alternatives=("2025-09-30", "2025-12-31"),
             reason="Last full month before the project started; fixed so reruns agree.",
-            first_step="01_fetch",
+            first_step="02_process",
             open_ended=True,
         ),
         Choice(

@@ -33,6 +33,7 @@ class Step:
     number: str
     name: str
     needs_api: bool = False  # True: only runs with --fetch
+    uses_choices: bool = True  # False: runs once, never per variant
 
     @property
     def script(self):
@@ -41,6 +42,7 @@ class Step:
 
 STEPS = [
     Step("00", "setup_check"),
+    Step("01", "fetch", needs_api=True, uses_choices=False),
 ]
 
 LATEX_FILES = [("paper", "paper.tex"), ("slides", "slides.tex")]
@@ -113,6 +115,8 @@ def show_list():
     say("Steps:")
     for s in STEPS:
         note = "  (needs API key: runs only with --fetch)" if s.needs_api else ""
+        if not s.uses_choices:
+            note += "  (reads no choices)"
         say(f"  {s.number}  {s.name}{note}")
     say("")
     say("Choices (name = default; alternatives; first step):")
@@ -154,15 +158,19 @@ def main():
         say(f"ERROR: {err}")
         return 2
 
-    for overrides in runs:
+    for run_number, overrides in enumerate(runs):
         variant = choices.variant_name(choices.resolve(overrides))
         say(f"=== Run: {'default' if variant is None else 'variants/' + variant}")
         for step in steps:
             if step.needs_api and not args.fetch:
                 say(f"--- {step.number} {step.name}: skipped (needs API; add --fetch)")
                 continue
+            if not step.uses_choices and run_number > 0:
+                say(f"--- {step.number} {step.name}: skipped (reads no choices; ran once)")
+                continue
             say(f"--- {step.number} {step.name}")
-            if run_step(step, overrides) != 0:
+            step_overrides = overrides if step.uses_choices else {}
+            if run_step(step, step_overrides) != 0:
                 say(f"STOPPED: step {step.number} failed.")
                 return 1
 
