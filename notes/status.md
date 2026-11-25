@@ -29,6 +29,13 @@ selling prices likely matters more for the answer than the optimiser.
   switch, the German zone change). The teacher downloaded FI, SE1 and EE
   locally (not yet committed); SE3 and DE were added after that, so the next
   run downloads only those 24 files.
+- Step 01, teacher's run: `DE 2018: FAILED: Both dates must have the same
+  UTC offset`. Cause: the 2018 request mixed a Helsinki-time start with the
+  Berlin-time zone-change moment, and the client's `Series.truncate()`
+  refuses mixed time zones. The fake client in the tests did not trim like
+  the real one, so the tests missed it. Fixed (both dates in Helsinki time);
+  new tests run the real entsoe-py client on fake XML and fail without the
+  fix. Only `prices_DE_2018.csv` is missing; the next run fetches just that.
 
 ## Open questions
 

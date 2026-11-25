@@ -47,6 +47,8 @@ def test_germany_changes_zone_on_2018_10_01():
     assert (code_a, code_b) == ("DE_AT_LU", "DE_LU")
     assert e_a == s_b == ft.DE_SPLIT  # joined exactly, no gap, no overlap
     assert s_a == by_year[2018].start and e_b == by_year[2018].end
+    for _, s, e in ft.segments(by_year[2018]):  # one time zone per request
+        assert str(s.tz) == str(e.tz) == ft.FILE_TZ
 
 
 def test_other_zones_need_one_request_per_year():
@@ -134,10 +136,18 @@ def test_throttle_spaces_calls():
 
 
 def fake_series(start, end, tz="Europe/Helsinki"):
-    """Prices like the client returns them: local time, end included."""
-    idx = ft.expected_index(start, end).append(pd.DatetimeIndex([end.tz_convert("UTC")]))
-    values = [float(i % 7) - 1.25 for i in range(len(idx))]
-    return pd.Series(values, index=idx.tz_convert(tz))
+    """Prices like the client returns them: local time, end included.
+
+    Like the real client (entsoe-py), it fetches a day extra on both sides
+    and then trims with Series.truncate(before=start, after=end). pandas
+    refuses that when start and end are in different time zones, which is
+    how a real download of DE 2018 failed.
+    """
+    day = pd.Timedelta(days=1)
+    idx = ft.expected_index(start - day, end + day)
+    values = [float(t.hour % 7) - 1.25 for t in idx]  # from the UTC hour
+    series = pd.Series(values, index=idx.tz_convert(tz))
+    return series.truncate(before=start, after=end)
 
 
 def test_raw_frame_drops_the_end_point_and_stores_utc():
@@ -158,7 +168,7 @@ def test_csv_round_trip_gives_the_same_bytes(tmp_path):
     assert a.read_bytes() == b.read_bytes()
     first = a.read_text(encoding="utf-8").splitlines()[:2]
     assert first[0] == "time_utc,time_helsinki,price_eur_mwh,minutes"
-    assert first[1] == "2024-03-29T22:00:00Z,2024-03-30T00:00:00+02:00,-1.25,60"
+    assert first[1] == "2024-03-29T22:00:00Z,2024-03-30T00:00:00+02:00,-0.25,60"
     back = ft.read_raw_csv(a)
     assert ft.check_frame(back, start, end)["missing"] == 0
 
@@ -226,6 +236,72 @@ def test_joined_german_file_has_no_gap_or_double_row(tmp_path):
     frame = ft.read_raw_csv(tmp_path / "prices_DE_2018.csv")
     c = ft.check_frame(frame, windows[0].start, windows[0].end)
     assert (c["missing"], c["extra"], c["duplicates"]) == (0, 0, 0)
+
+
+# ----------------------------------- the real client, with a fake network
+
+
+def fake_entsoe_xml(start, end):
+    """A minimal ENTSO-E price document for [start, end): hourly periods
+    before the 15-minute switch, quarter-hour periods after it."""
+    start, end = start.tz_convert("UTC"), end.tz_convert("UTC")
+    periods = []
+    for p_start, p_end, res, step in [
+        (start, min(end, ft.GO_LIVE_15MIN), "PT60M", "h"),
+        (max(start, ft.GO_LIVE_15MIN), end, "PT15M", "15min"),
+    ]:
+        if p_start >= p_end:
+            continue
+        times = pd.date_range(p_start, p_end, freq=step, inclusive="left")
+        points = "".join(
+            f"<Point><position>{i}</position>"
+            f"<price.amount>{t.hour % 7 - 1.25}</price.amount></Point>"
+            for i, t in enumerate(times, start=1))
+        periods.append(
+            f"<Period><timeInterval><start>{p_start:%Y-%m-%dT%H:%MZ}</start>"
+            f"<end>{p_end:%Y-%m-%dT%H:%MZ}</end></timeInterval>"
+            f"<resolution>{res}</resolution>{points}</Period>")
+    return ("<Publication_MarketDocument><TimeSeries><curveType>A01</curveType>"
+            + "".join(periods) + "</TimeSeries></Publication_MarketDocument>")
+
+
+@pytest.mark.filterwarnings("ignore::DeprecationWarning", "ignore::FutureWarning",
+                            "ignore:Converting a Series")  # from inside entsoe-py
+@pytest.mark.parametrize("zone,first,last", [
+    ("DE", "2018-09-29", "2018-10-03"),  # German zone change
+    ("FI", "2025-09-30", "2025-10-02"),  # switch to 15 minutes
+    ("SE3", "2024-10-26", "2024-10-28"),  # autumn daylight saving night
+])
+def test_real_client_with_fake_network(tmp_path, zone, first, last):
+    """Runs entsoe-py's own code (splitting, parsing, trimming) on fake XML.
+
+    A few days around each tricky moment keeps it fast. This is the test that
+    would have caught the DE 2018 time zone error.
+    """
+    from entsoe import EntsoePandasClient
+
+    class FakeResponse:
+        def __init__(self, text):
+            self.text = text
+
+    step = importlib.import_module("01_fetch")
+    client = EntsoePandasClient(api_key=FAKE_KEY, retry_count=1)
+    asked = []
+
+    def fake_request(params, start, end):
+        asked.append(params["in_Domain"])
+        return FakeResponse(fake_entsoe_xml(start, end))
+
+    client._base_request = fake_request
+    windows = ft.year_windows(zones=[zone], start=first, end=last)
+    status = step.fetch_all(client, windows, tmp_path, log=lambda m: None,
+                            sleep=lambda s: None, throttle=ft.Throttle(0))
+    assert status == {windows[0].filename: "present"}
+    frame = ft.read_raw_csv(tmp_path / windows[0].filename)
+    c = ft.check_frame(frame, windows[0].start, windows[0].end)
+    assert (c["missing"], c["extra"], c["duplicates"], c["empty_prices"]) == (0, 0, 0, 0)
+    if zone == "DE":
+        assert len(set(asked)) == 2  # both German zones were asked
 
 
 def test_existing_files_are_not_downloaded_again(tmp_path):

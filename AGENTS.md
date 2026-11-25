@@ -70,6 +70,10 @@ Everything must stay readable for students new to git, tests and the terminal.
   must judge.
 - Tests are illustrative, not exhaustive: a few fast offline pytest tests per
   step, with tiny hand-written data. Tests never call the API.
+- Where a library does work for us, test through the real library with a
+  fake network (e.g. entsoe-py fed with fake XML) rather than only with a
+  hand-made imitation of it: an imitation misses what we did not think of.
+  (Lesson from step 01, see notes/status.md.)
 
 ## Garden of forking paths: choices
 

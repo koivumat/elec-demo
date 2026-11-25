@@ -95,13 +95,16 @@ def segments(window):
     One request for most zones; two for DE in 2018 (before and after the
     zone change)."""
     parts = ZONES[window.zone]
+    tz = window.start.tz
     out = []
     for i, (code, valid_from) in enumerate(parts):
         valid_to = parts[i + 1][1] if i + 1 < len(parts) else None
         s = window.start if valid_from is None else max(window.start, valid_from)
         e = window.end if valid_to is None else min(window.end, valid_to)
         if s < e:
-            out.append((code, s, e))
+            # Same time zone for start and end: the client trims with
+            # Series.truncate(), which pandas refuses for mixed time zones.
+            out.append((code, s.tz_convert(tz), e.tz_convert(tz)))
     return out
 
 
