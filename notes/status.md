@@ -9,7 +9,7 @@ Last updated: step 01 (branch `step-01-fetch`, PR open, not yet verified).
 | step | branch | what | status |
 |---|---|---|---|
 | 00 | step-00-skeleton | folders, rules, notes, run_all.py, choices, setup check, tests, LaTeX stubs | verified (`verified-00-skeleton`) |
-| 01 | step-01-fetch | download FI, SE1, EE day-ahead prices 2015-01-01..2026-10-31 from ENTSO-E to data/raw (CSV); needs `--fetch` | PR open |
+| 01 | step-01-fetch | download FI, SE1, SE3, EE, DE day-ahead prices 2015-01-01..2026-10-31 from ENTSO-E to data/raw (CSV); needs `--fetch` | PR open |
 | 02 | step-02-process | pick zone and sample period; resolution (hourly/15 min), gaps; Parquet | planned |
 | 03 | step-03-describe | describe prices: levels, daily spreads, negative prices; figures | planned |
 | 04 | step-04-tariff | household buy and sell prices: margin, transmission, electricity tax, VAT | planned |
@@ -26,7 +26,9 @@ selling prices likely matters more for the answer than the optimiser.
   problems; both API keys found.
 - Step 01: the fetch code was tested only offline, with a simulated client
   (retries, rate limit, a missing hour, daylight saving, the 15-minute
-  switch). The teacher's `--fetch` run is the first real download.
+  switch, the German zone change). The teacher downloaded FI, SE1 and EE
+  locally (not yet committed); SE3 and DE were added after that, so the next
+  run downloads only those 24 files.
 
 ## Open questions
 

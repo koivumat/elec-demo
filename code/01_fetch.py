@@ -3,7 +3,7 @@
 Needs the API key in .env, so it runs only with:  python run_all.py --fetch
 (or directly: python code/01_fetch.py)
 
-Downloads every zone (FI, SE1, EE) and every year from 2015-01-01 to
+Downloads every zone (FI, SE1, SE3, EE, DE) and every year from 2015-01-01 to
 2026-10-31, one CSV file per zone and calendar year (Helsinki time), e.g.
 data/raw/prices_FI_2024.csv. This step reads no analysis choices: the raw data
 is the same for every variant; choices start in step 02.
@@ -29,7 +29,9 @@ from common import ROOT, Report, mask, output_dir, read_secret, rel, run, say, s
 STEP = "01_fetch"
 RAW_DIR = ROOT / "data" / "raw"
 FIGURE = "01_fetch_monthly_mean.svg"
-SERIES_COLORS = {"FI": "#257de0", "SE1": "#f47230", "EE": "#00b894"}
+# Fixed colour per zone (a zone keeps its colour in every figure)
+SERIES_COLORS = {"FI": "#257de0", "SE1": "#f47230", "EE": "#00b894",
+                 "SE3": "#f2a600", "DE": "#ee7fac"}
 
 
 # ---------------------------------------------------------------- download
@@ -66,11 +68,14 @@ def fetch_all(client, windows, raw_dir, log=say, sleep=None, throttle=None):
             continue
         log(f"  [{i:2d}/{len(windows)}] {label}: downloading")
         try:
-            series = ft.call_with_retry(
-                lambda w=w: client.query_day_ahead_prices(
-                    ft.ZONES[w.zone], start=w.start, end=w.end),
-                label, log, throttle=throttle, **kwargs,
-            )
+            parts = []
+            for code, s, e in ft.segments(w):  # two segments only for DE in 2018
+                series = ft.call_with_retry(
+                    lambda code=code, s=s, e=e: client.query_day_ahead_prices(
+                        code, start=s, end=e),
+                    label, log, throttle=throttle, **kwargs,
+                )
+                parts.append(ft.to_raw_frame(series, s, e))  # each cut to [s, e)
         except NoMatchingDataError:
             status[w.filename] = "no data"
             log(f"    {label}: ENTSO-E has no data for this period")
@@ -79,7 +84,7 @@ def fetch_all(client, windows, raw_dir, log=say, sleep=None, throttle=None):
             status[w.filename] = f"FAILED: {ft.describe_error(error)}"
             log(mask(f"    {label}: FAILED: {error}"))
             continue
-        frame = ft.to_raw_frame(series, w.start, w.end)
+        frame = pd.concat(parts, ignore_index=True)
         ft.write_raw_csv(frame, raw_dir / w.filename)
         status[w.filename] = "present"
     return status
@@ -90,6 +95,12 @@ def fetch_all(client, windows, raw_dir, log=say, sleep=None, throttle=None):
 
 def fmt(x, digits=2):
     return "-" if pd.isna(x) else f"{x:.{digits}f}"
+
+
+def zone_frame(frames, zone):
+    """All years of one zone in one DataFrame, or None if there are no files."""
+    parts = [df for name, df in frames.items() if name.startswith(f"prices_{zone}_")]
+    return pd.concat(parts, ignore_index=True) if parts else None
 
 
 def load_files(windows, raw_dir):
@@ -148,7 +159,7 @@ def draw_figure(frames, path):
 def build_report(windows, status, frames, figure_path):
     rep = Report(STEP, "Download day-ahead prices")
     rep.text(
-        "Day-ahead prices for FI, SE1 and EE from the ENTSO-E Transparency "
+        f"Day-ahead prices for {', '.join(ft.ZONES)} from the ENTSO-E Transparency "
         "Platform (https://transparency.entsoe.eu), one CSV file per zone and "
         "calendar year (Helsinki time) in `data/raw/`. Prices in EUR/MWh."
     )
@@ -156,6 +167,8 @@ def build_report(windows, status, frames, figure_path):
     rep.heading("Download settings (fixed, not choices)")
     rep.table(["setting", "value"], [
         ["zones", ", ".join(ft.ZONES)],
+        ["DE", "DE-AT-LU until 2018-09-30, DE-LU from 2018-10-01 "
+               "(zone change at midnight Berlin time)"],
         ["period", f"{ft.FETCH_START} up to (not including) {ft.FETCH_END}"],
         ["files", "one per zone and calendar year in Helsinki time"],
         ["15-minute prices from", "2025-10-01 01:00 Helsinki (= 2025-09-30 22:00 UTC)"],
@@ -249,6 +262,12 @@ def build_report(windows, status, frames, figure_path):
         excerpt(rep, frames["prices_FI_2025.csv"], "2025-10-26 02:45", "2025-10-26 04:15",
                 "The autumn daylight saving night 2025-10-26 (EXPECT: the hour 03:00-04:00 "
                 "Helsinki twice, first +03:00, then +02:00):")
+    if "prices_DE_2018.csv" in frames:
+        excerpt(rep, frames["prices_DE_2018.csv"], "2018-09-30 23:00", "2018-10-01 03:00",
+                "The German zone change in `prices_DE_2018.csv`: DE-AT-LU until 00:00 "
+                "Berlin time, DE-LU after; the row at 2018-10-01 01:00 Helsinki "
+                "(22:00 UTC) is the first DE-LU row. EXPECT: no gap, no double "
+                "row, no jump in prices.")
 
     # Facts
     rep.heading("Facts to recognise: EXPECT next to SEE")
@@ -277,6 +296,22 @@ def build_report(windows, status, frames, figure_path):
                           "01:00 (Helsinki)",
                           f"last hourly {local[is60].max():%Y-%m-%d %H:%M}, "
                           f"first 15-min {local[~is60].min():%Y-%m-%d %H:%M}"])
+    de = zone_frame(frames, "DE")
+    if de is not None:
+        local = de["time_utc"].dt.tz_convert(ft.FILE_TZ)
+        monthly = de.groupby(local.dt.strftime("%Y-%m"))["price_eur_mwh"].mean()
+        facts.append(["DE: highest monthly mean in August 2022 (gas crisis)",
+                      f"highest: {monthly.idxmax()} ({fmt(monthly.max())} EUR/MWh)"])
+    se1, se3 = zone_frame(frames, "SE1"), zone_frame(frames, "SE3")
+    if se1 is not None and se3 is not None:
+        def yearly_mean(df):
+            return df.groupby(df["time_utc"].dt.tz_convert(ft.FILE_TZ).dt.year)[
+                "price_eur_mwh"].mean()
+        gap = (yearly_mean(se3) - yearly_mean(se1)).dropna()
+        facts.append(["SE3 above SE1 in most years since 2021 (power flows from "
+                      "north to south are limited)",
+                      "SE3 minus SE1, yearly mean: "
+                      + "; ".join(f"{y}: {g:+.1f}" for y, g in gap.items())])
     lowest = min((c["min"] for c in checks.values()), default=float("nan"))
     facts.append([f"No price below {ft.PRICE_FLOOR:.0f} in any zone",
                   f"lowest price seen: {fmt(lowest)}"])
@@ -299,8 +334,9 @@ def build_report(windows, status, frames, figure_path):
 
     rep.heading("Figure")
     rep.text(f"![Monthly mean day-ahead prices](../figures/{figure_path.name})")
-    rep.text("EXPECT: a peak in 2022 for all zones; FI and EE close to each other "
-             "most of the time; SE1 lower.")
+    rep.text("EXPECT: a peak in 2022 for all zones; DE highest most of the time; "
+             "FI and EE close to each other most of the time; SE1 lowest, SE3 "
+             "between SE1 and FI.")
 
     rep.heading("What the ENTSO-E client changes")
     rep.bullets([

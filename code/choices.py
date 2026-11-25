@@ -30,8 +30,9 @@ CHOICES = {
         Choice(
             name="bidding_zone",
             default="FI",
-            alternatives=("SE1", "EE"),
-            reason="The research question is about Finland; neighbours allow comparison.",
+            alternatives=("SE1", "SE3", "EE", "DE"),
+            reason="The research question is about Finland; neighbours and DE "
+                   "(a higher-price benchmark) allow comparison.",
             first_step="02_process",
         ),
         Choice(

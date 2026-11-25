@@ -6,7 +6,7 @@ cannot start with a digit) and so none of them needs the API.
 The ENTSO-E service is not always stable. Every download goes through
 call_with_retry():
 - waits at least MIN_SECONDS_BETWEEN_CALLS between calls (ENTSO-E allows 400
-  requests per minute per token; we make about 70 in total),
+  requests per minute per token; a full download is about 120),
 - a request that hangs is cut after TIMEOUT_SECONDS,
 - network errors, time-outs and server errors (HTTP 500, 502, 503, 504, 527,
   599) are retried after 10 s, 30 s, 60 s, 120 s, 300 s,
@@ -28,7 +28,18 @@ import requests
 # These are not analysis choices: the download covers everything any choice
 # can select (see notes/decisions.md). Forks start at step 02.
 
-ZONES = {"FI": "FI", "SE1": "SE_1", "EE": "EE"}  # our name -> entsoe-py name
+# Our zone name -> the entsoe-py zone(s) behind it, each with the moment it
+# starts. Germany was one zone with Austria and Luxembourg (DE-AT-LU) until
+# delivery day 2018-09-30; from delivery day 2018-10-01 Austria has its own
+# zone and Germany is DE-LU. Our "DE" joins the two at that moment.
+DE_SPLIT = pd.Timestamp("2018-10-01 00:00", tz="Europe/Berlin")
+ZONES = {
+    "FI": [("FI", None)],
+    "SE1": [("SE_1", None)],
+    "SE3": [("SE_3", None)],
+    "EE": [("EE", None)],
+    "DE": [("DE_AT_LU", None), ("DE_LU", DE_SPLIT)],
+}
 FETCH_START = "2015-01-01"  # first day downloaded
 FETCH_END = "2026-11-01"  # first day NOT downloaded (so: up to 2026-10-31)
 FILE_TZ = "Europe/Helsinki"  # one file per calendar year in Helsinki time
@@ -76,6 +87,22 @@ def year_windows(zones=tuple(ZONES), start=FETCH_START, end=FETCH_END, tz=FILE_T
             w_end = min(end, pd.Timestamp(f"{year + 1}-01-01", tz=tz))
             windows.append(Window(zone, year, w_start, w_end))
     return windows
+
+
+def segments(window):
+    """The requests needed for one window: [(entsoe-py zone, start, end)].
+
+    One request for most zones; two for DE in 2018 (before and after the
+    zone change)."""
+    parts = ZONES[window.zone]
+    out = []
+    for i, (code, valid_from) in enumerate(parts):
+        valid_to = parts[i + 1][1] if i + 1 < len(parts) else None
+        s = window.start if valid_from is None else max(window.start, valid_from)
+        e = window.end if valid_to is None else min(window.end, valid_to)
+        if s < e:
+            out.append((code, s, e))
+    return out
 
 
 # --------------------------------------------------------------- retries

@@ -69,5 +69,13 @@ Every decision, dated, with who decided and why. Analysis choices also live in
   downloaded in this run (the terminal does), so it changes only when the
   data changes. This replaces the earlier plan to download everything on
   every run. (teacher asked, agent implemented)
+- **SE3 and DE added** (teacher), as `bidding_zone` alternatives too. SE3
+  is the Stockholm area; DE is a higher-price benchmark. Total download now
+  60 files, about 37 MB, no file above 2 MB. (teacher)
+- **DE joins two ENTSO-E zones.** Germany was DE-AT-LU until delivery day
+  2018-09-30 and DE-LU from 2018-10-01 (Austria split off). Our "DE" uses
+  DE-AT-LU before 2018-10-01 00:00 Berlin time and DE-LU from then on, so the
+  series covers 2015 onwards. The 2018 file needs two requests; the check
+  report shows the rows around the join. (agent)
 - **Steps that read no choices run once per run_all call**, not once per
   variant in a sweep (`uses_choices=False` in run_all.py). (agent)

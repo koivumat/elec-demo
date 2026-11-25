@@ -39,6 +39,21 @@ def test_year_windows_cover_the_period_without_overlap():
     assert windows[0].filename == "prices_FI_2015.csv"
 
 
+def test_germany_changes_zone_on_2018_10_01():
+    by_year = {w.year: w for w in ft.year_windows(zones=["DE"])}
+    assert [c for c, _, _ in ft.segments(by_year[2017])] == ["DE_AT_LU"]
+    assert [c for c, _, _ in ft.segments(by_year[2019])] == ["DE_LU"]
+    (code_a, s_a, e_a), (code_b, s_b, e_b) = ft.segments(by_year[2018])
+    assert (code_a, code_b) == ("DE_AT_LU", "DE_LU")
+    assert e_a == s_b == ft.DE_SPLIT  # joined exactly, no gap, no overlap
+    assert s_a == by_year[2018].start and e_b == by_year[2018].end
+
+
+def test_other_zones_need_one_request_per_year():
+    for w in ft.year_windows(zones=["FI", "SE1", "SE3", "EE"]):
+        assert len(ft.segments(w)) == 1
+
+
 # ------------------------------------------------------- expected counts
 
 
@@ -190,6 +205,27 @@ def test_fetch_all_retries_continues_after_a_failure_and_masks_the_key(tmp_path)
     assert status["prices_EE_2024.csv"] == "present"
     assert any("retrying" in line for line in logs)
     assert FAKE_KEY not in "\n".join(logs)
+
+
+def test_joined_german_file_has_no_gap_or_double_row(tmp_path):
+    step = importlib.import_module("01_fetch")
+    windows = [w for w in ft.year_windows(zones=["DE"]) if w.year == 2018]
+
+    class TwoZoneClient:
+        def __init__(self):
+            self.asked = []
+
+        def query_day_ahead_prices(self, area, start, end):
+            self.asked.append(area)
+            return fake_series(start, end, "Europe/Berlin")  # end included
+
+    client = TwoZoneClient()
+    step.fetch_all(client, windows, tmp_path, log=lambda m: None,
+                   sleep=lambda s: None, throttle=ft.Throttle(0))
+    assert client.asked == ["DE_AT_LU", "DE_LU"]
+    frame = ft.read_raw_csv(tmp_path / "prices_DE_2018.csv")
+    c = ft.check_frame(frame, windows[0].start, windows[0].end)
+    assert (c["missing"], c["extra"], c["duplicates"]) == (0, 0, 0)
 
 
 def test_existing_files_are_not_downloaded_again(tmp_path):
