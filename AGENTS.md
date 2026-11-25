@@ -70,6 +70,10 @@ Everything must stay readable for students new to git, tests and the terminal.
   must judge.
 - Tests are illustrative, not exhaustive: a few fast offline pytest tests per
   step, with tiny hand-written data. Tests never call the API.
+- Where a library does work for us, test through the real library with a
+  fake network (e.g. entsoe-py fed with fake XML) rather than only with a
+  hand-made imitation of it: an imitation misses what we did not think of.
+  (Lesson from step 01, see notes/status.md.)
 
 ## Garden of forking paths: choices
 
@@ -92,6 +96,18 @@ Everything must stay readable for students new to git, tests and the terminal.
   (repeatable; several sweeps run every combination), `--latex` (compile
   paper and slides), `--list`.
 - Every PR that adds or changes a step updates `STEPS` in run_all.py.
+- A step that reads no choices (`uses_choices=False`, e.g. the download) runs
+  once per `run_all.py` call, never once per variant.
+
+## Code layout of a step
+
+- `code/NN_name.py` orchestrates the step and writes its report. A file
+  name starting with digits cannot be imported normally, so functions that
+  tests need live in an importable module next to it (e.g.
+  `code/fetch_tools.py` for step 01).
+- Every API call goes through `fetch_tools.call_with_retry` (time-out,
+  spacing between calls, retries with growing waits, a long wait on HTTP
+  429). Retries are printed in the terminal, never written to reports.
 
 ## Repository layout
 
@@ -99,7 +115,7 @@ Everything must stay readable for students new to git, tests and the terminal.
 |---|---|
 | `code/` | step scripts `NN_name.py`, `choices.py`, `common.py` |
 | `tests/` | pytest tests |
-| `data/raw/` | API downloads as CSV, committed (open and diff them) |
+| `data/raw/` | API downloads as CSV, one file per zone and year, committed (open and diff them) |
 | `data/processed/` | cleaned data as Parquet (types and time zones survive) |
 | `checks/` | check reports `NN_name.md` |
 | `results/` | tables and numbers for the paper |
