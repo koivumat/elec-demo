@@ -52,6 +52,30 @@ CHOICES = {
             open_ended=True,
         ),
         Choice(
+            name="planning_day",
+            default="helsinki",
+            alternatives=("market",),
+            reason="A Finnish household thinks in local days; 'market' is the "
+                   "market's own day (00-24 Central European time, 01-01 Helsinki).",
+            first_step="02_process",
+        ),
+        Choice(
+            name="incomplete_days",
+            default="drop",
+            alternatives=("keep",),
+            reason="A day with missing prices cannot be planned as a whole; only "
+                   "DE before 2015-01-05 and edge days are affected.",
+            first_step="02_process",
+        ),
+        Choice(
+            name="known_anomalies",
+            default="keep",
+            alternatives=("drop",),
+            reason="FI 2023-11-24 (-500, a trader's erroneous bid) was a real "
+                   "price that was paid; 'drop' shows how much one day matters.",
+            first_step="02_process",
+        ),
+        Choice(
             name="price_resolution",
             default="native",
             alternatives=("hourly", "15min"),

@@ -112,9 +112,9 @@ EXPECT: no price below -500, the market's minimum price.
 | prices_FI_2022.csv | -2.08 | 154.04 | 861.14 | 27 | 0 |
 | prices_FI_2023.csv | -500.00 | 56.46 | 777.18 | 467 | 0 |
 | prices_FI_2024.csv | -20.01 | 45.57 | 1896.00 | 725 | 0 |
-| prices_FI_2025.csv | -21.39 | 42.09 | 572.20 | 596 | 0 |
+| prices_FI_2025.csv | -21.39 | 40.47 | 572.20 | 596 | 0 |
 | prices_FI_2026.csv | -10.92 | 57.46 | 654.88 | 225 | 0 |
-| prices_SE1_2015.csv | 0.32 | 21.17 | 66.90 | 0 | 0 |
+| prices_SE1_2015.csv | 0.32 | 21.16 | 66.90 | 0 | 0 |
 | prices_SE1_2016.csv | 4.02 | 28.95 | 214.25 | 0 | 0 |
 | prices_SE1_2017.csv | 1.70 | 30.84 | 120.01 | 0 | 0 |
 | prices_SE1_2018.csv | 1.59 | 44.23 | 255.02 | 0 | 0 |
@@ -124,7 +124,7 @@ EXPECT: no price below -500, the market's minimum price.
 | prices_SE1_2022.csv | -2.08 | 59.06 | 590.00 | 29 | 0 |
 | prices_SE1_2023.csv | -60.04 | 39.97 | 332.00 | 434 | 0 |
 | prices_SE1_2024.csv | -48.69 | 25.06 | 526.25 | 627 | 0 |
-| prices_SE1_2025.csv | -94.59 | 20.32 | 275.19 | 727 | 0 |
+| prices_SE1_2025.csv | -94.59 | 16.71 | 275.19 | 727 | 0 |
 | prices_SE1_2026.csv | -29.49 | 42.69 | 417.76 | 287 | 0 |
 | prices_SE3_2015.csv | 0.32 | 22.01 | 150.06 | 0 | 0 |
 | prices_SE3_2016.csv | 4.02 | 29.23 | 214.25 | 0 | 0 |
@@ -136,7 +136,7 @@ EXPECT: no price below -500, the market's minimum price.
 | prices_SE3_2022.csv | -2.08 | 129.21 | 799.97 | 29 | 0 |
 | prices_SE3_2023.csv | -60.04 | 51.70 | 332.00 | 429 | 0 |
 | prices_SE3_2024.csv | -59.96 | 35.77 | 707.52 | 652 | 0 |
-| prices_SE3_2025.csv | -25.05 | 50.39 | 518.28 | 507 | 0 |
+| prices_SE3_2025.csv | -25.05 | 46.23 | 518.28 | 507 | 0 |
 | prices_SE3_2026.csv | -14.49 | 71.09 | 486.96 | 362 | 0 |
 | prices_EE_2015.csv | 0.32 | 31.09 | 150.06 | 0 | 0 |
 | prices_EE_2016.csv | 4.02 | 33.06 | 200.06 | 0 | 0 |
@@ -148,7 +148,7 @@ EXPECT: no price below -500, the market's minimum price.
 | prices_EE_2022.csv | -0.04 | 192.82 | 4000.00 | 2 | 0 |
 | prices_EE_2023.csv | -60.04 | 90.78 | 777.18 | 129 | 0 |
 | prices_EE_2024.csv | -19.96 | 87.27 | 1896.00 | 183 | 0 |
-| prices_EE_2025.csv | -21.71 | 82.94 | 1051.32 | 264 | 0 |
+| prices_EE_2025.csv | -21.71 | 80.38 | 1051.32 | 264 | 0 |
 | prices_EE_2026.csv | -10.92 | 80.37 | 847.02 | 180 | 0 |
 | prices_DE_2015.csv | -79.94 | 31.83 | 99.77 | 110 | 0 |
 | prices_DE_2016.csv | -130.09 | 28.98 | 104.96 | 97 | 0 |
@@ -160,7 +160,7 @@ EXPECT: no price below -500, the market's minimum price.
 | prices_DE_2022.csv | -19.04 | 235.45 | 871.00 | 68 | 0 |
 | prices_DE_2023.csv | -500.00 | 95.18 | 524.27 | 302 | 0 |
 | prices_DE_2024.csv | -135.45 | 78.51 | 936.28 | 457 | 0 |
-| prices_DE_2025.csv | -250.32 | 90.97 | 583.40 | 724 | 0 |
+| prices_DE_2025.csv | -250.32 | 89.31 | 583.40 | 724 | 0 |
 | prices_DE_2026.csv | -499.99 | 113.98 | 747.10 | 1860 | 0 |
 
 ## Days with an unexpected number of rows
@@ -261,7 +261,7 @@ The German zone change in `prices_DE_2018.csv`: DE-AT-LU until 00:00 Berlin time
 | FI: hours with a negative price rare before 2023, frequent from 2023 | 2015: 0 h; 2016: 0 h; 2017: 0 h; 2018: 0 h; 2019: 0 h; 2020: 9 h; 2021: 5 h; 2022: 27 h; 2023: 467 h; 2024: 725 h; 2025: 458.75 h; 2026: 56.25 h |
 | FI: last hourly row 2025-10-01 00:00, first 15-min row 01:00 (Helsinki) | last hourly 2025-10-01 00:00, first 15-min 2025-10-01 01:00 |
 | DE: highest monthly mean in August 2022 (gas crisis) | highest: 2022-08 (465.04 EUR/MWh) |
-| SE3 above SE1 in most years since 2021 (power flows from north to south are limited) | SE3 minus SE1, yearly mean: 2015: +0.8; 2016: +0.3; 2017: +0.4; 2018: +0.3; 2019: +0.4; 2020: +6.8; 2021: +23.5; 2022: +70.1; 2023: +11.7; 2024: +10.7; 2025: +30.1; 2026: +28.4 |
+| SE3 above SE1 in most years since 2021 (power flows from north to south are limited) | SE3 minus SE1, yearly mean: 2015: +0.8; 2016: +0.3; 2017: +0.4; 2018: +0.3; 2019: +0.4; 2020: +6.8; 2021: +23.5; 2022: +70.1; 2023: +11.7; 2024: +10.7; 2025: +29.5; 2026: +28.4 |
 | No price below -500 in any zone | lowest price seen: -500.00 |
 
 ## Highest and lowest prices per zone

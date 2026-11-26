@@ -29,6 +29,8 @@ Everything must stay readable for students new to git, tests and the terminal.
 
 - One step = one branch `step-NN-name` = one pull request.
   Small fixes between steps: branch `fix-short-name`.
+  When the teacher asks to do two steps together: one branch
+  `step-NN-MM-name` and one tag `verified-NN-MM-name` (steps 02-03 did this).
 - Merge with "Create a merge commit" (not squash), so `git branch -d` works.
 - After merging, the teacher deletes the branch and tags the verified state
   `verified-NN-name`. A tag never has the same name as a branch.
@@ -55,6 +57,8 @@ Everything must stay readable for students new to git, tests and the terminal.
   person can recognise, with what we EXPECT next to what we SEE; the choices
   in effect (`Report.choices_in_effect`); and a small figure where a picture
   is faster than a table.
+- Means of prices are time-weighted (`fetch_tools.weighted_mean`): an hour
+  counts as much as four quarter-hours. Never a plain mean of rows.
 - Reports are deterministic: no run times, no dates of running, no absolute
   paths, no machine names. A changed report in a PR means changed results.
 - Figures: SVG with fixed metadata (no creation date, fixed hash salt), so an

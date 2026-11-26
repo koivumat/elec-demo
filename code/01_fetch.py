@@ -131,9 +131,10 @@ def draw_figure(frames, path):
         parts = [df for name, df in frames.items() if name.startswith(f"prices_{zone}_")]
         if not parts:
             continue
-        df = pd.concat(parts)
-        monthly = (df.set_index(df["time_utc"].dt.tz_convert(ft.FILE_TZ).dt.tz_localize(None))
-                   ["price_eur_mwh"].resample("MS").mean())
+        df = pd.concat(parts, ignore_index=True)
+        month = (df["time_utc"].dt.tz_convert(ft.FILE_TZ).dt.tz_localize(None)
+                 .dt.to_period("M").dt.to_timestamp())
+        monthly = ft.weighted_mean(df, by=month)
         ax.plot(monthly.index, monthly.to_numpy(), color=color, linewidth=1.6, label=zone)
         ends.append((float(monthly.iloc[-1]), monthly.index[-1], zone))
     # Labels at the line ends, pushed apart when the lines end close together
@@ -272,17 +273,18 @@ def build_report(windows, status, frames, figure_path):
     # Facts
     rep.heading("Facts to recognise: EXPECT next to SEE")
     facts = []
-    all_fi = pd.concat([frames[w.filename] for w in fi.values() if w.filename in frames]) \
+    all_fi = pd.concat([frames[w.filename] for w in fi.values() if w.filename in frames],
+                       ignore_index=True) \
         if any(w.filename in frames for w in fi.values()) else None
     if all_fi is not None:
         local = all_fi["time_utc"].dt.tz_convert(ft.FILE_TZ)
-        yearly = all_fi.groupby(local.dt.year)["price_eur_mwh"].mean()
+        yearly = ft.weighted_mean(all_fi, by=local.dt.year)
         facts.append(["FI: highest yearly mean price in 2022 (energy crisis)",
                       f"highest: {yearly.idxmax()} ({fmt(yearly.max())} EUR/MWh)"])
         day = all_fi[local.dt.date == pd.Timestamp("2023-11-24").date()]
         facts.append(["FI 2023-11-24: many hours at -500 (a trader's erroneous bid)",
                       f"{int((day['price_eur_mwh'] <= -499.99).sum())} rows at -500; "
-                      f"day mean {fmt(day['price_eur_mwh'].mean())}"])
+                      f"day mean {fmt(ft.weighted_mean(day))}"])
         # Count hours, not rows: a 15-minute row is a quarter of an hour.
         neg = (all_fi.assign(year=local.dt.year, hours=all_fi["minutes"] / 60)
                .query("price_eur_mwh < 0").groupby("year")["hours"].sum()
@@ -299,14 +301,13 @@ def build_report(windows, status, frames, figure_path):
     de = zone_frame(frames, "DE")
     if de is not None:
         local = de["time_utc"].dt.tz_convert(ft.FILE_TZ)
-        monthly = de.groupby(local.dt.strftime("%Y-%m"))["price_eur_mwh"].mean()
+        monthly = ft.weighted_mean(de, by=local.dt.strftime("%Y-%m"))
         facts.append(["DE: highest monthly mean in August 2022 (gas crisis)",
                       f"highest: {monthly.idxmax()} ({fmt(monthly.max())} EUR/MWh)"])
     se1, se3 = zone_frame(frames, "SE1"), zone_frame(frames, "SE3")
     if se1 is not None and se3 is not None:
         def yearly_mean(df):
-            return df.groupby(df["time_utc"].dt.tz_convert(ft.FILE_TZ).dt.year)[
-                "price_eur_mwh"].mean()
+            return ft.weighted_mean(df, by=df["time_utc"].dt.tz_convert(ft.FILE_TZ).dt.year)
         gap = (yearly_mean(se3) - yearly_mean(se1)).dropna()
         facts.append(["SE3 above SE1 in most years since 2021 (power flows from "
                       "north to south are limited)",

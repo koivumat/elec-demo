@@ -79,3 +79,38 @@ Every decision, dated, with who decided and why. Analysis choices also live in
   report shows the rows around the join. (agent)
 - **Steps that read no choices run once per run_all call**, not once per
   variant in a sweep (`uses_choices=False` in run_all.py). (agent)
+
+## 2026-11-26 (steps 02 and 03)
+
+- **Steps 02 and 03 in one branch and PR** (`step-02-03-process-describe`),
+  because the figures of 03 help to verify 02. Tag after merging:
+  `verified-02-03-process-describe`. (teacher)
+- **New choice `planning_day`**, default `helsinki` (00-24 Helsinki time),
+  alternative `market` (the market's own day, 00-24 Central European time =
+  01-01 Helsinki). Used for days in steps 02-03 and later as the battery's
+  planning day. With `market`, the last day of the sample is incomplete
+  (the raw data ends at midnight Helsinki time) and is dropped. (agent)
+- **New choice `incomplete_days`**, default `drop` (a day with a missing
+  price cannot be planned as a whole), alternative `keep`. With the data we
+  have, only DE before 2015-01-06 and the market-day edge are affected. No
+  filling of gaps: there are almost none. (agent)
+- **New choice `known_anomalies`**, default `keep`, alternative `drop`.
+  The only listed anomaly is FI 2023-11-24 (prices down to -500 after a
+  trader's erroneous bid; EE and SE1 were not affected). Keep by default:
+  the prices were real and were paid. (agent)
+- **`price_resolution`**: `hourly` averages each hour's four quarter-hours;
+  `15min` repeats each hourly price four times. Both keep every day's
+  time-weighted mean price (checked in the report and in tests). (agent)
+- **Processed data**: one Parquet file `data/processed/prices.parquet` for
+  the chosen zone, columns `time_utc` (UTC), `day` (planning day, Parquet
+  date), `price_eur_mwh`, `minutes`. (agent)
+- **Daily spread** as the key statistic in step 03: mean of the most
+  expensive h hours minus mean of the cheapest h hours of a day, intervals
+  weighted by length, h = 1, 2, 4 (all three shown, so no choice needed).
+  **Upper bound**: sum of daily spreads / 1000 = EUR per kWh of storage per
+  year for one cycle a day without losses. (agent)
+- **All means are time-weighted** (an hour counts as four quarter-hours).
+  Fixed in step 01's report, where the plain mean of rows was used. (agent)
+- **Figures**: zones keep fixed colours; years use an ordinal blue ramp
+  (light = early), checked with a colour validator; legends sit outside the
+  plot area. (agent)
