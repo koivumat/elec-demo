@@ -43,6 +43,8 @@ class Step:
 STEPS = [
     Step("00", "setup_check"),
     Step("01", "fetch", needs_api=True, uses_choices=False),
+    Step("02", "process"),
+    Step("03", "describe"),
 ]
 
 LATEX_FILES = [("paper", "paper.tex"), ("slides", "slides.tex")]

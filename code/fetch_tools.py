@@ -243,6 +243,22 @@ def read_raw_csv(path):
 # ---------------------------------------------------------------- checks
 
 
+def weighted_mean(df, by=None):
+    """Time-weighted mean price: an hour counts as much as four quarter-hours.
+
+    A plain mean of rows would count each quarter-hour as much as an hour.
+    `by`: optional keys (a Series aligned with df) to get one mean per group.
+    """
+    valid = df.dropna(subset=["price_eur_mwh"])
+    pw = valid["price_eur_mwh"] * valid["minutes"]
+    if by is None:
+        return float(pw.sum() / valid["minutes"].sum()) if len(valid) else float("nan")
+    keep = df["price_eur_mwh"].notna().to_numpy()
+    by = np.asarray(by)[keep]
+    pw, minutes = pw.to_numpy(), valid["minutes"].to_numpy()
+    return (pd.Series(pw).groupby(by).sum() / pd.Series(minutes).groupby(by).sum())
+
+
 def check_frame(df, start, end):
     """Counts a person (and a test) can check for one raw file."""
     expected = expected_index(start, end)
@@ -259,7 +275,7 @@ def check_frame(df, start, end):
         "rows_60": int((df["minutes"] == 60).sum()),
         "rows_15": int((df["minutes"] == 15).sum()),
         "min": float(valid.min()) if len(valid) else float("nan"),
-        "mean": float(valid.mean()) if len(valid) else float("nan"),
+        "mean": weighted_mean(df),
         "max": float(valid.max()) if len(valid) else float("nan"),
         "negative": int((valid < 0).sum()),
         "below_floor": int((valid < PRICE_FLOOR).sum()),
