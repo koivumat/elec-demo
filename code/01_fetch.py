@@ -24,14 +24,13 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import fetch_tools as ft  # noqa: E402
-from common import ROOT, Report, mask, output_dir, read_secret, rel, run, say, start_step  # noqa: E402
+from common import (ROOT, ZONE_COLORS, Report, mask, output_dir, read_secret,  # noqa: E402
+                    rel, run, say, start_step)
 
 STEP = "01_fetch"
 RAW_DIR = ROOT / "data" / "raw"
 FIGURE = "01_fetch_monthly_mean.svg"
-# Fixed colour per zone (a zone keeps its colour in every figure)
-SERIES_COLORS = {"FI": "#257de0", "SE1": "#f47230", "EE": "#00b894",
-                 "SE3": "#f2a600", "DE": "#ee7fac"}
+SERIES_COLORS = ZONE_COLORS  # fixed colour per zone, from common.py
 
 
 # ---------------------------------------------------------------- download

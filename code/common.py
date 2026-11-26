@@ -19,6 +19,11 @@ import choices
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# A zone keeps its colour in every figure (checked with a colour validator
+# for colour-blind readers; see notes/decisions.md).
+ZONE_COLORS = {"FI": "#257de0", "SE1": "#f47230", "EE": "#00b894",
+               "SE3": "#f2a600", "DE": "#ee7fac"}
+
 # ---------------------------------------------------------------- settings
 
 

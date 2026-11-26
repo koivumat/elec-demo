@@ -73,6 +73,34 @@ Mean price by hour of day, one line per year (light: early years, dark: late). E
 
 Daily 2-hour spread per year. EXPECT: most days well below the mean, a few very large days pulling the mean up.
 
+## Comparing zones
+
+All zones processed with the same choices (`prices_all_zones.parquet` from step 02). Upper bound as above: 2-hour battery, EUR per kWh a year, mean over full years.
+
+| zone | days | mean price | mean 2-hour spread | negative hours a year | upper bound, 2-hour battery | same price as FI |
+|---|---|---|---|---|---|---|
+| FI | 1765 | 71.25 | 98.41 | 347 | 37.76 | - |
+| SE1 | 1765 | 36.48 | 38.02 | 336 | 12.88 | 33 % |
+| SE3 | 1765 | 66.63 | 88.61 | 309 | 32.50 | 40 % |
+| EE | 1765 | 107.21 | 154.24 | 112 | 57.71 | 39 % |
+| DE | 1765 | 122.75 | 128.59 | 373 | 44.66 | 5 % |
+
+'Same price as FI': share of the time when the two zones had the same price, i.e. the cable between them was not full and they were in effect one market.
+
+EXPECT: DE and EE have the highest prices, SE1 the lowest. FI often shares its price with its neighbours (SE1, SE3, EE), almost never with DE (no direct cable). DE's spreads are larger than the Nordic zones' (more solar: midday dip and evening peak); EE's spreads are the largest of all, so EE is the high benchmark for a battery.
+
+![03_zones_yearly.svg](../figures/03_zones_yearly.svg)
+
+Mean price and mean daily 2-hour spread per year and zone. EXPECT: all zones peak in 2022; DE or EE highest and SE1 lowest in every year.
+
+![03_zones_hour_profile.svg](../figures/03_zones_hour_profile.svg)
+
+Mean price by hour of day per zone. EXPECT: DE dips at midday (solar) and peaks in the evening; the Nordic zones are flatter.
+
+![03_zones_spread.svg](../figures/03_zones_spread.svg)
+
+Daily 2-hour spread per zone. The spread, not the price level, is what a battery earns from.
+
 ## Choices in effect
 
 | choice | value | default | first step | reason |
@@ -81,7 +109,7 @@ Daily 2-hour spread per year. EXPECT: most days well below the mean, a few very 
 | sample_start | 2022-01-01 | 2022-01-01 | 02_process | Includes the 2022 price crisis; 2025-10-01 starts the 15-minute era. |
 | sample_end | 2026-10-31 | 2026-10-31 | 02_process | Last full month before the project started; fixed so reruns agree. |
 | planning_day | helsinki | helsinki | 02_process | A Finnish household thinks in local days; 'market' is the market's own day (00-24 Central European time, 01-01 Helsinki). |
-| incomplete_days | drop | drop | 02_process | A day with missing prices cannot be planned as a whole; only DE before 2015-01-05 and edge days are affected. |
+| incomplete_days | drop | drop | 02_process | A day with missing prices cannot be planned as a whole; only DE's first days of 2015 and edge days are affected. |
 | known_anomalies | keep | keep | 02_process | FI 2023-11-24 (-500, a trader's erroneous bid) was a real price that was paid; 'drop' shows how much one day matters. |
 | price_resolution | native | native | 02_process | Keep prices as traded: hourly until 2025-09-30, 15 minutes after. |
 

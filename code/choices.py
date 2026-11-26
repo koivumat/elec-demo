@@ -64,7 +64,7 @@ CHOICES = {
             default="drop",
             alternatives=("keep",),
             reason="A day with missing prices cannot be planned as a whole; only "
-                   "DE before 2015-01-05 and edge days are affected.",
+                   "DE's first days of 2015 and edge days are affected.",
             first_step="02_process",
         ),
         Choice(

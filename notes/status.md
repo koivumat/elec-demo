@@ -12,7 +12,7 @@ open, not yet verified).
 | 00 | step-00-skeleton | folders, rules, notes, run_all.py, choices, setup check, tests, LaTeX stubs | verified (`verified-00-skeleton`) |
 | 01 | step-01-fetch | download FI, SE1, SE3, EE, DE day-ahead prices 2015-01-01..2026-10-31 from ENTSO-E to data/raw (CSV); needs `--fetch` | verified (`verified-01-fetch`) |
 | 02 | step-02-03-process-describe | pick zone, sample, planning day; incomplete days; anomalies; resolution; Parquet | PR open |
-| 03 | step-02-03-process-describe | yearly prices, daily spreads, upper bound of battery earnings, hour profile; figures | PR open |
+| 03 | step-02-03-process-describe | yearly prices, daily spreads, upper bound of battery earnings, hour profile; comparison of all zones; figures | PR open |
 | 04 | step-04-tariff | household buy and sell prices: margin, transmission, electricity tax, VAT | planned |
 | 05 | step-05-battery | one-day battery optimisation (LP, with MILP as a choice), run over the sample | planned |
 | 06 | step-06-robustness | sweep the choices; do conclusions change? | planned |
@@ -44,6 +44,16 @@ Steps 02 and 03 share one branch and PR (teacher's request: the figures of
   teacher): FI 2022-01-01..2026-10-31 has 1765 days, all complete. Upper
   bound for a 2-hour battery (one cycle a day, no losses, spot prices):
   69 EUR/kWh in 2022, 23-29 EUR/kWh a year in 2023-2025.
+- Steps 02-03, teacher's run: every output reproduced byte for byte on the
+  teacher's computer (only the setup report differed: it lacked the three
+  new choices, because the agent had restored main's copy instead of
+  regenerating it).
+- Zone comparison added at the teacher's request (same branch): step 02 also
+  writes `prices_all_zones.parquet` (all zones, same choices), step 03
+  compares them. Over 2022-2026: mean price SE1 36, SE3 67, FI 71, EE 107,
+  DE 123 EUR/MWh; mean daily 2-hour spread SE1 38, SE3 89, FI 98, DE 129,
+  EE 154. EE, not DE, is the high benchmark for a battery. FI has the same
+  price as SE3 40 %, EE 39 %, SE1 33 % and DE 5 % of the time.
 
 ## Open questions
 

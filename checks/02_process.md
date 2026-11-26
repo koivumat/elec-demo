@@ -75,6 +75,20 @@ First and last rows:
 | 2026-10-31T21:30:00Z | 2026-10-31 23:30 | 2026-10-31 | 22.67 | 15 |
 | 2026-10-31T21:45:00Z | 2026-10-31 23:45 | 2026-10-31 | 21.23 | 15 |
 
+## All zones, for comparisons: `data/processed/prices_all_zones.parquet`
+
+Every zone went through exactly the same steps and choices as FI above. Columns as above, plus `zone` (category).
+
+| zone | rows | days | incomplete days | dropped anomaly days | time-weighted mean |
+|---|---|---|---|---|---|
+| FI | 70872 | 1765 | 0 | 0 | 71.25 |
+| SE1 | 70872 | 1765 | 0 | 0 | 36.48 |
+| SE3 | 70872 | 1765 | 0 | 0 | 66.63 |
+| EE | 70872 | 1765 | 0 | 0 | 107.21 |
+| DE | 70872 | 1765 | 0 | 0 | 122.75 |
+
+354360 rows. The FI rows equal `data/processed/prices.parquet`: yes. EXPECT for the default: 1765 days in every zone.
+
 ## Choices in effect
 
 | choice | value | default | first step | reason |
@@ -83,7 +97,7 @@ First and last rows:
 | sample_start | 2022-01-01 | 2022-01-01 | 02_process | Includes the 2022 price crisis; 2025-10-01 starts the 15-minute era. |
 | sample_end | 2026-10-31 | 2026-10-31 | 02_process | Last full month before the project started; fixed so reruns agree. |
 | planning_day | helsinki | helsinki | 02_process | A Finnish household thinks in local days; 'market' is the market's own day (00-24 Central European time, 01-01 Helsinki). |
-| incomplete_days | drop | drop | 02_process | A day with missing prices cannot be planned as a whole; only DE before 2015-01-05 and edge days are affected. |
+| incomplete_days | drop | drop | 02_process | A day with missing prices cannot be planned as a whole; only DE's first days of 2015 and edge days are affected. |
 | known_anomalies | keep | keep | 02_process | FI 2023-11-24 (-500, a trader's erroneous bid) was a real price that was paid; 'drop' shows how much one day matters. |
 | price_resolution | native | native | 02_process | Keep prices as traded: hourly until 2025-09-30, 15 minutes after. |
 

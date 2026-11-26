@@ -2,20 +2,24 @@
 
 Reads data/raw/ (written by step 01) and the choices bidding_zone,
 sample_start, sample_end, planning_day, known_anomalies, incomplete_days and
-price_resolution. Writes data/processed/prices.parquet and
-checks/02_process.md (or the same under variants/<name>/).
+price_resolution. Writes data/processed/prices.parquet (the chosen zone),
+data/processed/prices_all_zones.parquet (every zone, processed the same way,
+for comparisons) and checks/02_process.md (or the same under
+variants/<name>/).
 
 Run:  python run_all.py --steps 02      (or with --set name=value)
 """
 
 import pandas as pd
 
+import fetch_tools as ft
 import process_tools as pt
 from common import ROOT, Report, output_dir, rel, run, say, start_step
 
 STEP = "02_process"
 RAW_DIR = ROOT / "data" / "raw"
 OUT_NAME = "prices.parquet"
+ALL_NAME = "prices_all_zones.parquet"
 
 
 def fmt(x, digits=2):
@@ -37,23 +41,22 @@ def main():
     first, last = settings["sample_start"], settings["sample_end"]
     pday = settings["planning_day"]
 
-    raw, files = pt.load_raw(zone, RAW_DIR)
-    sample = pt.select_sample(raw, first, last, pday)
-    no_anomalies, anomaly_days = pt.drop_anomalies(sample, zone, settings["known_anomalies"])
-    days = pt.day_completeness(no_anomalies, first, last, pday)
-    for d in anomaly_days:  # dropped on purpose: not counted as incomplete
-        days = days.drop(index=d)
-    incomplete = days[~days["complete"]]
-    if settings["incomplete_days"] == "drop":
-        kept = no_anomalies[~no_anomalies["day"].isin(set(incomplete.index))]
-    else:
-        kept = no_anomalies
-    kept = kept.dropna(subset=["price_eur_mwh"])
-    out = pt.finish(pt.to_resolution(kept, settings["price_resolution"]))
+    # Every zone goes through exactly the same steps; the chosen zone is the
+    # analysis series, all zones together are for comparisons (step 03).
+    results = {z: pt.process_zone(z, settings, RAW_DIR) for z in ft.ZONES}
+    r = results[zone]
+    raw, files, sample = r["raw"], r["files"], r["sample"]
+    no_anomalies, anomaly_days = r["no_anomalies"], r["anomaly_days"]
+    days, incomplete, kept, out = r["days"], r["incomplete"], r["kept"], r["out"]
 
-    path = output_dir("data/processed", variant) / OUT_NAME
+    folder = output_dir("data/processed", variant)
+    path = folder / OUT_NAME
     out.to_parquet(path, index=False, engine="pyarrow", compression="zstd")
     back = pd.read_parquet(path)
+    every = pt.all_zones(results)
+    path_all = folder / ALL_NAME
+    every.to_parquet(path_all, index=False, engine="pyarrow", compression="zstd")
+    back_all = pd.read_parquet(path_all)
 
     # ------------------------------------------------------------- report
     rep = Report(STEP, "Process prices")
@@ -134,6 +137,19 @@ def main():
     rep.text("First and last rows:")
     rep.table(["time_utc", "Helsinki time", "day", "price_eur_mwh", "minutes"],
               rows_table(back))
+
+    rep.heading(f"All zones, for comparisons: `{rel(path_all)}`")
+    rep.text("Every zone went through exactly the same steps and choices as "
+             f"{zone} above. Columns as above, plus `zone` (category).")
+    rep.table(["zone", "rows", "days", "incomplete days", "dropped anomaly days",
+               "time-weighted mean"],
+              [[z, len(res["out"]), res["out"]["day"].nunique(), len(res["incomplete"]),
+                len(res["anomaly_days"]), fmt(pt.weighted_mean(res["out"]))]
+               for z, res in results.items()])
+    same = back_all[back_all["zone"] == zone].drop(columns="zone").reset_index(drop=True)
+    rep.text(f"{len(back_all)} rows. The {zone} rows equal `{rel(path)}`: "
+             f"{'yes' if same.equals(back) else 'NO (problem)'}. EXPECT for the "
+             "default: 1765 days in every zone.")
 
     rep.choices_in_effect(settings)
     rep.heading("What a person should check")

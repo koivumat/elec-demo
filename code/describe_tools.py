@@ -93,6 +93,36 @@ def upper_bound_table(daily):
     return out
 
 
+def zone_daily(every):
+    """daily_table() for each zone of the all-zones file: {zone: table}."""
+    return {z: daily_table(g.drop(columns="zone"))
+            for z, g in every.groupby("zone", observed=True, sort=False)}
+
+
+def equal_price_share(every, zone, other, tol=0.005):
+    """Share of time (by duration) when `other` has the same price as `zone`.
+
+    Neighbouring zones have the same price whenever the cable between them
+    is not full: then they are, in effect, one market.
+    """
+    a = every[every["zone"] == zone][["time_utc", "price_eur_mwh", "minutes"]]
+    b = every[every["zone"] == other][["time_utc", "price_eur_mwh"]]
+    both = a.merge(b, on="time_utc", suffixes=("", "_other"))
+    same = (both["price_eur_mwh"] - both["price_eur_mwh_other"]).abs() < tol
+    return float(both.loc[same, "minutes"].sum() / both["minutes"].sum())
+
+
+def zone_hour_profile(every):
+    """Mean price by hour of day (Helsinki time), one column per zone."""
+    local = pd.DatetimeIndex(every["time_utc"]).tz_convert(HELSINKI)
+    w = every["minutes"].to_numpy()
+    frame = pd.DataFrame({"zone": every["zone"].astype(str).to_numpy(), "hour": local.hour,
+                          "pw": every["price_eur_mwh"].to_numpy() * w, "w": w})
+    g = frame.groupby(["hour", "zone"])[["pw", "w"]].sum()
+    out = (g["pw"] / g["w"]).unstack("zone")
+    return out[[z for z in every["zone"].cat.categories if z in out.columns]]
+
+
 def hour_profile(df):
     """Mean price by hour of day (Helsinki time), one column per year."""
     local = pd.DatetimeIndex(df["time_utc"]).tz_convert(HELSINKI)

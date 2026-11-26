@@ -8,6 +8,10 @@ writes:
 - figures/03_monthly.svg                  monthly mean price and daily spread
 - figures/03_hour_profile.svg             mean price by hour of day, per year
 - figures/03_spread_by_year.svg           daily 2-hour spread, per year
+- figures/03_zones_yearly.svg             all zones: yearly mean price and spread
+- figures/03_zones_hour_profile.svg       all zones: mean price by hour of day
+- figures/03_zones_spread.svg             all zones: daily 2-hour spread
+(the zone comparisons read data/processed/prices_all_zones.parquet)
 (non-default runs: the same under variants/<name>/).
 
 Run:  python run_all.py --steps 03     (needs step 02 first: --steps 02-03)
@@ -21,7 +25,8 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import describe_tools as dt  # noqa: E402
-from common import Report, output_dir, rel, run, say, start_step  # noqa: E402
+import fetch_tools as ft  # noqa: E402
+from common import ZONE_COLORS, Report, output_dir, rel, run, say, start_step  # noqa: E402
 
 STEP = "03_describe"
 BLUE = "#257de0"
@@ -108,6 +113,118 @@ def figure_spread_by_year(daily, path):
                  "whiskers: 5th to 95th percentile)", loc="left", fontsize=10)
     style(ax)
     save(fig, path)
+
+
+def grouped_bars(ax, table, colors):
+    """Bars for each year (rows), one bar per zone (columns), side by side."""
+    zones, years = list(table.columns), list(table.index)
+    width = 0.8 / len(zones)
+    x = np.arange(len(years))
+    for i, z in enumerate(zones):
+        ax.bar(x - 0.4 + width * (i + 0.5), table[z].to_numpy(), width=width * 0.9,
+               color=colors[z], label=z)
+    ax.set_xticks(x, [str(y) for y in years])
+
+
+def figure_zones_yearly(daily_by_zone, path):
+    mean = pd.DataFrame({z: d.groupby("year")["mean"].mean() for z, d in daily_by_zone.items()})
+    spread = pd.DataFrame({z: d.groupby("year")["spread_2h"].mean()
+                           for z, d in daily_by_zone.items()})
+    fig, (a, b) = plt.subplots(2, 1, figsize=(8, 5.2), sharex=True)
+    grouped_bars(a, mean, ZONE_COLORS)
+    a.set_title("Mean price, EUR/MWh (mean of daily means)", loc="left", fontsize=10)
+    grouped_bars(b, spread, ZONE_COLORS)
+    b.set_title("Mean daily 2-hour spread, EUR/MWh", loc="left", fontsize=10)
+    for ax in (a, b):
+        style(ax)
+    a.legend(frameon=False, fontsize=8, ncols=len(mean.columns), loc="lower left",
+             bbox_to_anchor=(0, 1.12))  # above the plot: off the bars
+    save(fig, path)
+
+
+def figure_zones_hour_profile(profile, path):
+    fig, ax = plt.subplots(figsize=(8, 3.6))
+    ends = []
+    for z in profile.columns:
+        ax.plot(profile.index, profile[z], color=ZONE_COLORS[z], linewidth=1.6, label=z)
+        ends.append((float(profile[z].iloc[-1]), z))
+    low, high = ax.get_ylim()
+    gap, placed = 0.05 * (high - low), []
+    for value, z in sorted(ends):  # labels at the line ends, pushed apart
+        pos = max(value, placed[-1] + gap) if placed else value
+        placed.append(pos)
+        ax.text(23.4, pos, z, va="center", fontsize=8, color=TEXT)
+    ax.set_xticks(range(0, 24, 3))
+    ax.set_xlim(0, 24.5)
+    ax.set_xlabel("hour of day, Helsinki time", fontsize=9)
+    ax.set_title("Mean price by hour of day, EUR/MWh, whole sample", loc="left", fontsize=10)
+    ax.legend(frameon=False, fontsize=8, ncols=len(profile.columns),
+              loc="upper center", bbox_to_anchor=(0.5, -0.2))
+    style(ax)
+    save(fig, path)
+
+
+def figure_zones_spread(daily_by_zone, path):
+    zones = list(daily_by_zone)
+    data = [daily_by_zone[z]["spread_2h"].to_numpy() for z in zones]
+    fig, ax = plt.subplots(figsize=(8, 3.4))
+    box = ax.boxplot(data, tick_labels=zones, whis=(5, 95), showfliers=False, widths=0.5,
+                     boxprops={"color": TEXT}, whiskerprops={"color": TEXT},
+                     capprops={"color": TEXT}, medianprops={"linewidth": 2})
+    for z, line in zip(zones, box["medians"]):
+        line.set_color(ZONE_COLORS[z])
+    ax.set_title("Daily 2-hour spread, EUR/MWh, whole sample (box: middle half "
+                 "of days; whiskers: 5th to 95th percentile)", loc="left", fontsize=10)
+    style(ax)
+    save(fig, path)
+
+
+def zones_section(rep, every, zone, figs):
+    """Report section and figures comparing all zones."""
+    daily_by_zone = dt.zone_daily(every)
+    figure_zones_yearly(daily_by_zone, figs / "03_zones_yearly.svg")
+    figure_zones_hour_profile(dt.zone_hour_profile(every), figs / "03_zones_hour_profile.svg")
+    figure_zones_spread(daily_by_zone, figs / "03_zones_spread.svg")
+
+    rep.heading("Comparing zones")
+    rep.text("All zones processed with the same choices (`prices_all_zones.parquet` "
+             "from step 02). Upper bound as above: 2-hour battery, EUR per kWh "
+             "a year, mean over full years.")
+    rows = []
+    for z, d in daily_by_zone.items():
+        g = every[every["zone"] == z]
+        bound = dt.upper_bound_table(d)
+        full = bound[bound["days"] >= 365]
+        years = d["year"].nunique()
+        rows.append([
+            z, len(d), fmt(ft.weighted_mean(g)), fmt(d["spread_2h"].mean()),
+            fmt(d["negative_hours"].sum() / years, 0),
+            fmt(full["eur_per_kwh_2h"].mean()) if len(full) else "-",
+            "-" if z == zone else f"{100 * dt.equal_price_share(every, zone, z):.0f} %",
+        ])
+    rep.table(["zone", "days", "mean price", "mean 2-hour spread",
+               "negative hours a year", "upper bound, 2-hour battery",
+               f"same price as {zone}"], rows)
+    rep.text(f"'Same price as {zone}': share of the time when the two zones had "
+             "the same price, i.e. the cable between them was not full and they "
+             "were in effect one market.")
+    rep.text("EXPECT: DE and EE have the highest prices, SE1 the lowest. FI often "
+             "shares its price with its neighbours (SE1, SE3, EE), almost never "
+             "with DE (no direct cable). DE's spreads are larger than the Nordic "
+             "zones' (more solar: midday dip and evening peak); EE's spreads are "
+             "the largest of all, so EE is the high benchmark for a battery.")
+    for name, text in [
+        ("03_zones_yearly.svg", "Mean price and mean daily 2-hour spread per year "
+         "and zone. EXPECT: all zones peak in 2022; DE or EE highest and SE1 "
+         "lowest in every year."),
+        ("03_zones_hour_profile.svg", "Mean price by hour of day per zone. EXPECT: "
+         "DE dips at midday (solar) and peaks in the evening; the Nordic zones "
+         "are flatter."),
+        ("03_zones_spread.svg", "Daily 2-hour spread per zone. The spread, not "
+         "the price level, is what a battery earns from."),
+    ]:
+        rep.text(f"![{name}](../figures/{name})")
+        rep.text(text)
 
 
 # -------------------------------------------------------------------- main
@@ -232,6 +349,10 @@ def main():
     ]:
         rep.text(f"![{name}](../figures/{name})")
         rep.text(text)
+
+    src_all = src.with_name("prices_all_zones.parquet")
+    if src_all.exists():
+        zones_section(rep, pd.read_parquet(src_all), zone, figs)
 
     rep.choices_in_effect(settings)
     rep.heading("What a person should check")

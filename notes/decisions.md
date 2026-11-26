@@ -114,3 +114,14 @@ Every decision, dated, with who decided and why. Analysis choices also live in
 - **Figures**: zones keep fixed colours; years use an ordinal blue ramp
   (light = early), checked with a colour validator; legends sit outside the
   plot area. (agent)
+- **Zone comparison** (teacher asked for summary figures across regions).
+  Step 02 processes every zone with the same choices and writes
+  `data/processed/prices_all_zones.parquet` (column `zone` added) next to
+  the chosen zone's `prices.parquet`, which is unchanged. Step 03 adds a
+  table (mean price, daily spread, negative hours, upper bound, share of
+  time with the same price as the chosen zone) and three figures
+  (`03_zones_yearly.svg`, `03_zones_hour_profile.svg`,
+  `03_zones_spread.svg`). Processing stays in step 02 only. (teacher asked,
+  agent designed)
+- **Zone colours live in `common.ZONE_COLORS`**, shared by all figures.
+  (agent)

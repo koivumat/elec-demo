@@ -113,6 +113,36 @@ def to_resolution(df, choice):
 weighted_mean = ft.weighted_mean  # time-weighted mean price (see fetch_tools)
 
 
+def process_zone(zone, settings, raw_dir):
+    """The whole of step 02 for one zone. Returns a dict with every stage,
+    so the report can show what each stage did; 'out' is the result."""
+    first, last = settings["sample_start"], settings["sample_end"]
+    pday = settings["planning_day"]
+    raw, files = load_raw(zone, raw_dir)
+    sample = select_sample(raw, first, last, pday)
+    no_anomalies, anomaly_days = drop_anomalies(sample, zone, settings["known_anomalies"])
+    days = day_completeness(no_anomalies, first, last, pday)
+    days = days.drop(index=anomaly_days)  # dropped on purpose: not "incomplete"
+    incomplete = days[~days["complete"]]
+    if settings["incomplete_days"] == "drop":
+        kept = no_anomalies[~no_anomalies["day"].isin(set(incomplete.index))]
+    else:
+        kept = no_anomalies
+    kept = kept.dropna(subset=["price_eur_mwh"])
+    out = finish(to_resolution(kept, settings["price_resolution"]))
+    return {"raw": raw, "files": files, "sample": sample, "no_anomalies": no_anomalies,
+            "anomaly_days": anomaly_days, "days": days, "incomplete": incomplete,
+            "kept": kept, "out": out}
+
+
+def all_zones(results):
+    """{zone: process_zone result} -> one long table with a 'zone' column."""
+    parts = [r["out"].assign(zone=zone) for zone, r in results.items()]
+    out = pd.concat(parts, ignore_index=True)
+    out["zone"] = pd.Categorical(out["zone"], categories=list(results))
+    return out[["zone", "time_utc", "day", "price_eur_mwh", "minutes"]]
+
+
 def finish(df):
     """Final column order and types for the Parquet file."""
     out = df[["time_utc", "day", "price_eur_mwh", "minutes"]].copy()
